@@ -1,5 +1,4 @@
 import streamlit as st
-import streamlit.components.v1 as components
 from google import genai
 from google.genai import types
 from supabase import create_client, Client
@@ -7,19 +6,7 @@ import os
 import time
 
 logo_path = "logo.png" if os.path.exists("logo.png") else "✍️"
-st.set_page_config(page_title="LyzAI", page_icon=logo_path if os.path.exists("logo.png") else "✍️", layout="wide")
-
-# ==========================================
-# VERIFICACIÓN GOOGLE SEARCH CONSOLE (<HEAD>)
-# ==========================================
-components.html("""
-    <script>
-        const meta = document.createElement('meta');
-        meta.name = 'google-site-verification';
-        meta.content = 'eVD2UKFxTlBqnLiLxQQbRxdlUMBbqpjwA7z7toKBXCg';
-        window.parent.document.head.appendChild(meta);
-    </script>
-""", height=0)
+st.set_page_config(page_title="LyzAI Studio", page_icon=logo_path if os.path.exists("logo.png") else "✍️", layout="wide")
 
 # ==========================================
 # CONFIGURACIÓN SEGURA (SECRETS DE STREAMLIT)
@@ -49,12 +36,48 @@ def enviar_mensaje_seguro(chat_session, mensaje):
                 continue
             raise e
 
+# ==========================================
+# GESTIÓN DE ESTADOS DE NAVEGACIÓN Y SESIÓN
+# ==========================================
 if "user" not in st.session_state:
     st.session_state.user = None
 
+# Controla si el usuario está en la "landing" pública o pasó al login/app
+if "app_view_mode" not in st.session_state:
+    st.session_state.app_view_mode = "landing"
+
 supabase = get_supabase_client()
 
-if not st.session_state.user:
+# ==========================================
+# 1. PANTALLA DE BIENVENIDA (PÚBLICA PARA GOOGLE)
+# ==========================================
+if not st.session_state.user and st.session_state.app_view_mode == "landing":
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        if os.path.exists(logo_path):
+            st.image(logo_path, width=100)
+        else:
+            st.markdown("# ✍️")
+            
+        st.title("LyzAI Studio — Asistente de Escritura Creativa")
+        st.write("""
+        Bienvenido a **LyzAI Studio**, tu plataforma impulsada por Inteligencia Artificial de clase mundial para dar vida a tus historias, novelas, poesía y guiones literarios. 
+        Explora géneros como Fantasía, Ciencia Ficción, Romance, Thriller y mucho más con un co-creador inteligente en la nube.
+        """)
+        
+        st.markdown("---")
+        
+        if st.button("🚀 Comenzar / Iniciar Sesión", use_container_width=True, type="primary"):
+            st.session_state.app_view_mode = "auth"
+            st.rerun()
+            
+        st.caption("Plataforma interactiva de escritura creativa con almacenamiento seguro en la nube.")
+    st.stop()
+
+# ==========================================
+# 2. PANTALLA DE AUTENTICACIÓN (LOGIN / REGISTRO)
+# ==========================================
+if not st.session_state.user and st.session_state.app_view_mode == "auth":
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         if os.path.exists(logo_path):
@@ -62,8 +85,7 @@ if not st.session_state.user:
         else:
             st.markdown("# ✍️")
             
-        st.title("LyzAI Studio")
-        st.caption("Inicia sesión o regístrate para acceder a tu estudio en la nube.")
+        st.title("Acceso a LyzAI Studio")
         
         tab_login, tab_signup = st.tabs(["Iniciar Sesión", "Registrarse"])
         
@@ -94,8 +116,17 @@ if not st.session_state.user:
                         st.success("¡Cuenta creada! Ya puedes iniciar sesión.")
                     except Exception as e:
                         st.error(f"Error al registrarse: {e}")
+                        
+        st.write("")
+        if st.button("⬅️ Volver a la página principal"):
+            st.session_state.app_view_mode = "landing"
+            st.rerun()
+            
     st.stop()
 
+# ==========================================
+# APLICACIÓN PRINCIPAL (USUARIO LOGUEADO)
+# ==========================================
 all_genres = [
     "Fantasía", "Ciencia Ficción", "Romance", "Misterio y Thriller",
     "Terror / Horror", "Ficción Histórica", "Aventura", "Drama",
@@ -149,6 +180,7 @@ with st.sidebar:
     if st.button("Cerrar Sesión", use_container_width=True):
         supabase.auth.sign_out()
         st.session_state.user = None
+        st.session_state.app_view_mode = "landing"
         st.rerun()
         
     if st.button("💬 Nueva Conversación", use_container_width=True):
