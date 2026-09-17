@@ -1,4 +1,5 @@
 import streamlit as st
+import streamlit.components.v1 as components
 from google import genai
 from google.genai import types
 from supabase import create_client, Client
@@ -9,12 +10,16 @@ logo_path = "logo.png" if os.path.exists("logo.png") else "✍️"
 st.set_page_config(page_title="LyzAI", page_icon=logo_path if os.path.exists("logo.png") else "✍️", layout="wide")
 
 # ==========================================
-# ETIQUETA DE VERIFICACIÓN GOOGLE SEARCH CONSOLE (GLOBAL)
+# VERIFICACIÓN GOOGLE SEARCH CONSOLE (<HEAD>)
 # ==========================================
-st.markdown(
-    '<meta name="google-site-verification" content="eVD2UKFxTlBqnLiLxQQbRxdlUMBbqpjwA7z7toKBXCg" />',
-    unsafe_allow_html=True
-)
+components.html("""
+    <script>
+        const meta = document.createElement('meta');
+        meta.name = 'google-site-verification';
+        meta.content = 'eVD2UKFxTlBqnLiLxQQbRxdlUMBbqpjwA7z7toKBXCg';
+        window.parent.document.head.appendChild(meta);
+    </script>
+""", height=0)
 
 # ==========================================
 # CONFIGURACIÓN SEGURA (SECRETS DE STREAMLIT)
@@ -52,7 +57,6 @@ supabase = get_supabase_client()
 if not st.session_state.user:
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        # 1. Logo en la pantalla de Inicio de Sesión / Registro
         if os.path.exists(logo_path):
             st.image(logo_path, width=90)
         else:
@@ -136,7 +140,6 @@ def cargar_biblioteca_nube():
     return library
 
 with st.sidebar:
-    # 2. Logo en la barra lateral (Menú)
     if os.path.exists(logo_path):
         st.image(logo_path, width=70)
     
@@ -218,7 +221,6 @@ elif st.session_state.current_view in all_genres:
         st.rerun()
 
 else:
-    # 3. Logo en la Pantalla Principal
     if os.path.exists(logo_path):
         st.image(logo_path, width=80)
         
