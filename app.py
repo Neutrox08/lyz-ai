@@ -208,7 +208,7 @@ if "chat" not in st.session_state:
     REGLA DE ORO: Cuando un capítulo o título esté listo, incluye al final la etiqueta exacta: [GUARDAR_OBRA: Título | Género]
     """
   st.session_state.chat = client.chats.create(
-      model="gemini-3-flash",
+      model="gemini-2.5-flash",
       config=types.GenerateContentConfig(
           system_instruction=system_instruction, temperature=0.7
       ),
@@ -275,7 +275,7 @@ with st.sidebar:
         "Eres LyzAI, un asistente de escritura creativa de clase mundial."
     )
     st.session_state.chat = client.chats.create(
-        model="gemini-3-flash",
+        model="gemini-2.5-flash",
         config=types.GenerateContentConfig(
             system_instruction=system_instruction, temperature=0.7
         ),
