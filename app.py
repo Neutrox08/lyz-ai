@@ -1,4 +1,5 @@
 import streamlit as st
+import streamlit.components.v1 as components
 from google import genai
 from google.genai import types
 from supabase import create_client, Client
@@ -7,6 +8,34 @@ import time
 
 logo_path = "logo.png" if os.path.exists("logo.png") else "✍️"
 st.set_page_config(page_title="LyzAI Studio", page_icon=logo_path if os.path.exists("logo.png") else "✍️", layout="wide")
+
+# ==========================================
+# CONFIGURACIÓN DE GOOGLE ANALYTICS (GA4)
+# ==========================================
+GA_MEASUREMENT_ID = "G-SE3F0436R"
+
+analytics_injection = f"""
+<script>
+  const docHead = window.parent.document.head;
+  if (!docHead.querySelector("#ga-script")) {{
+    const script1 = document.createElement('script');
+    script1.id = "ga-script";
+    script1.async = true;
+    script1.src = 'https://www.googletagmanager.com/gtag/js?id={GA_MEASUREMENT_ID}';
+    docHead.appendChild(script1);
+
+    const script2 = document.createElement('script');
+    script2.innerHTML = `
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){{dataLayer.push(arguments);}}
+      gtag('js', new Date());
+      gtag('config', '{GA_MEASUREMENT_ID}');
+    `;
+    docHead.appendChild(script2);
+  }}
+</script>
+"""
+components.html(analytics_injection, height=0, width=0)
 
 # ==========================================
 # CONFIGURACIÓN SEGURA (SECRETS DE STREAMLIT)
@@ -118,7 +147,7 @@ if not st.session_state.user and st.session_state.app_view_mode == "auth":
                         st.error(f"Error al registrarse: {e}")
                         
         st.write("")
-        if st.button("⬅️ Volver a la página principal"):
+        if st.button("⬅️ Volver al inicio"):
             st.session_state.app_view_mode = "landing"
             st.rerun()
             
@@ -140,7 +169,7 @@ if "chat" not in st.session_state:
     REGLA DE ORO: Cuando un capítulo o título esté listo, incluye al final la etiqueta exacta: [GUARDAR_OBRA: Título | Género]
     """
     st.session_state.chat = client.chats.create(
-        model='gemini-3.6-flash',
+        model='gemini-2.5-flash', # Actualizado o ajustado según tu versión base
         config=types.GenerateContentConfig(system_instruction=system_instruction, temperature=0.7)
     )
 
@@ -187,7 +216,7 @@ with st.sidebar:
         client = get_genai_client()
         system_instruction = "Eres LyzAI, un asistente de escritura creativa de clase mundial."
         st.session_state.chat = client.chats.create(
-            model='gemini-3.6-flash',
+            model='gemini-2.5-flash',
             config=types.GenerateContentConfig(system_instruction=system_instruction, temperature=0.7)
         )
         st.session_state.messages = [{"role": "assistant", "content": "¡Nueva conversación iniciada!"}]
