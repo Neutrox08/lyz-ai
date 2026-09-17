@@ -6,7 +6,7 @@ import os
 import time
 
 logo_path = "logo.png" if os.path.exists("logo.png") else "✍️"
-st.set_page_config(page_title="PlotAI", page_icon=logo_path, layout="wide")
+st.set_page_config(page_title="LyzAI", page_icon=logo_path, layout="wide")
 
 # ==========================================
 # CONFIGURACIÓN SEGURA (SECRETS DE STREAMLIT)
@@ -44,7 +44,7 @@ supabase = get_supabase_client()
 if not st.session_state.user:
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        st.title("📖 PlotAI Studio")
+        st.title("📖 LyzAI Studio")
         st.caption("Inicia sesión o regístrate para acceder a tu estudio en la nube.")
         
         tab_login, tab_signup = st.tabs(["Iniciar Sesión", "Registrarse"])
@@ -87,7 +87,7 @@ all_genres = [
 if "chat" not in st.session_state:
     client = get_genai_client()
     system_instruction = """
-    Eres "PlotAI", un asistente de escritura creativa de clase mundial, experto en narrativa, desarrollo de personajes, poesía y una enorme variedad de géneros literarios globales.
+    Eres "LyzAI", un asistente de escritura creativa de clase mundial, experto en narrativa, desarrollo de personajes, poesía y una enorme variedad de géneros literarios globales.
     REGLA DE ORO: Cuando un capítulo o título esté listo, incluye al final la etiqueta exacta: [GUARDAR_OBRA: Título | Género]
     """
     st.session_state.chat = client.chats.create(
@@ -97,7 +97,7 @@ if "chat" not in st.session_state:
 
 if "messages" not in st.session_state:
     st.session_state.messages = [
-        {"role": "assistant", "content": "¡Hola! Soy PlotAI, tu co-creador literario en la nube. ¿Qué obra fantástica vamos a crear hoy?"}
+        {"role": "assistant", "content": "¡Hola! Soy LyzAI, tu co-creador literario en la nube. ¿Qué obra fantástica vamos a crear hoy?"}
     ]
 
 if "current_work_genre" not in st.session_state:
@@ -122,7 +122,7 @@ def cargar_biblioteca_nube():
     return library
 
 with st.sidebar:
-    st.title("PlotAI Menu")
+    st.title("LyzAI Menu")
     st.write(f"👤 `{st.session_state.user.email}`")
     
     if st.button("Cerrar Sesión", use_container_width=True):
@@ -132,7 +132,7 @@ with st.sidebar:
         
     if st.button("💬 Nueva Conversación", use_container_width=True):
         client = get_genai_client()
-        system_instruction = "Eres PlotAI, un asistente de escritura creativa de clase mundial."
+        system_instruction = "Eres LyzAI, un asistente de escritura creativa de clase mundial."
         st.session_state.chat = client.chats.create(
             model='gemini-3.6-flash',
             config=types.GenerateContentConfig(system_instruction=system_instruction, temperature=0.7)
@@ -200,7 +200,7 @@ elif st.session_state.current_view in all_genres:
         st.rerun()
 
 else:
-    st.title("PlotAI")
+    st.title("LyzAI")
     st.caption("Tu asistente de escritura creativa en la nube")
 
     st.write("### 🚀 Accesos Directos Favoritos")
@@ -243,7 +243,7 @@ else:
             st.markdown(prompt)
 
         with st.chat_message("assistant"):
-            with st.spinner("PlotAI está escribiendo..."):
+            with st.spinner("LyzAI está escribiendo..."):
                 try:
                     response = enviar_mensaje_seguro(st.session_state.chat, prompt)
                     text = response.text
