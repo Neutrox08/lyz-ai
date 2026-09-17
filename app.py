@@ -10,9 +10,10 @@ logo_path = "logo.png" if os.path.exists("logo.png") else "✍️"
 st.set_page_config(page_title="LyzAI Studio", page_icon=logo_path if os.path.exists("logo.png") else "✍️", layout="wide")
 
 # ==========================================
-# CONFIGURACIÓN DE GOOGLE ANALYTICS (GA4)
+# CONFIGURACIÓN DE GOOGLE ANALYTICS / ETIQUETA
 # ==========================================
 GA_MEASUREMENT_ID = "G-SE3F0436R"
+GT_CONTAINER_ID = "GT-KTTZPP4C"
 
 analytics_injection = f"""
 <script>
@@ -30,6 +31,7 @@ analytics_injection = f"""
       function gtag(){{dataLayer.push(arguments);}}
       gtag('js', new Date());
       gtag('config', '{GA_MEASUREMENT_ID}');
+      gtag('config', '{GT_CONTAINER_ID}');
     `;
     docHead.appendChild(script2);
   }}
@@ -169,7 +171,7 @@ if "chat" not in st.session_state:
     REGLA DE ORO: Cuando un capítulo o título esté listo, incluye al final la etiqueta exacta: [GUARDAR_OBRA: Título | Género]
     """
     st.session_state.chat = client.chats.create(
-        model='gemini-2.5-flash', # Actualizado o ajustado según tu versión base
+        model='gemini-2.5-flash',
         config=types.GenerateContentConfig(system_instruction=system_instruction, temperature=0.7)
     )
 
