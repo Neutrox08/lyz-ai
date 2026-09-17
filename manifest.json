@@ -8,12 +8,7 @@
   "orientation": "portrait",
   "icons": [
     {
-      "src": "https://raw.githubusercontent.com/TuUsuarioDeGitHub/lyz-ai/main/logo.png",
-      "sizes": "192x192",
-      "type": "image/png"
-    },
-    {
-      "src": "https://raw.githubusercontent.com/TuUsuarioDeGitHub/lyz-ai/main/logo.png",
+      "src": "https://raw.githubusercontent.com/Neutrox08/lyz-ai/main/logo-512.png",
       "sizes": "512x512",
       "type": "image/png"
     }
