@@ -9,7 +9,7 @@ logo_path = "logo.png" if os.path.exists("logo.png") else "✍️"
 st.set_page_config(page_title="LyzAI", page_icon=logo_path if os.path.exists("logo.png") else "✍️", layout="wide")
 
 # ==========================================
-# ETIQUETA DE VERIFICACIÓN GOOGLE SEARCH CONSOLE
+# ETIQUETA DE VERIFICACIÓN GOOGLE SEARCH CONSOLE (GLOBAL)
 # ==========================================
 st.markdown(
     '<meta name="google-site-verification" content="eVD2UKFxTlBqnLiLxQQbRxdlUMBbqpjwA7z7toKBXCg" />',
@@ -293,4 +293,3 @@ else:
                     error_msg = f"⚠️ Error: {e}"
                     st.error(error_msg)
                     st.session_state.messages.append({"role": "assistant", "content": error_msg})
-            st.chat_message("assistant").write(f"Ocurrió un error al procesar la respuesta: {err}")
