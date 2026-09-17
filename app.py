@@ -1,43 +1,43 @@
 import streamlit as st
-import streamlit.components.v1 as components
 from google import genai
 from google.genai import types
 from supabase import create_client, Client
 import os
 import time
+import pathlib
+import streamlit as st_pkg
 
 logo_path = "logo.png" if os.path.exists("logo.png") else "✍️"
 st.set_page_config(page_title="LyzAI Studio", page_icon=logo_path if os.path.exists("logo.png") else "✍️", layout="wide")
 
 # ==========================================
-# CONFIGURACIÓN DE GOOGLE ANALYTICS / ETIQUETA
+# CONFIGURACIÓN E INYECCIÓN DIRECTA DE GOOGLE ANALYTICS
 # ==========================================
-GA_MEASUREMENT_ID = "G-SE3F0436R"
-GT_CONTAINER_ID = "GT-KTTZPP4C"
+@st.cache_resource
+def inject_google_analytics():
+    try:
+        st_dir = pathlib.Path(st_pkg.__file__).parent
+        index_path = st_dir / "static" / "index.html"
+        if index_path.exists():
+            content = index_path.read_text(encoding="utf-8")
+            ga_snippet = """
+            <!-- Google tag (gtag.js) -->
+            <script async src="https://www.googletagmanager.com/gtag/js?id=G-SE3F0436R"></script>
+            <script>
+              window.dataLayer = window.dataLayer || [];
+              function gtag(){dataLayer.push(arguments);}
+              gtag('js', new Date());
+              gtag('config', 'G-SE3F0436R');
+              gtag('config', 'GT-KTTZPP4C');
+            </script>
+            """
+            if "G-SE3F0436R" not in content:
+                new_content = content.replace("</head>", f"{ga_snippet}</head>")
+                index_path.write_text(new_content, encoding="utf-8")
+    except Exception as e:
+        print(f"Error al inyectar analítica: {e}")
 
-analytics_injection = f"""
-<script>
-  const docHead = window.parent.document.head;
-  if (!docHead.querySelector("#ga-script")) {{
-    const script1 = document.createElement('script');
-    script1.id = "ga-script";
-    script1.async = true;
-    script1.src = 'https://www.googletagmanager.com/gtag/js?id={GA_MEASUREMENT_ID}';
-    docHead.appendChild(script1);
-
-    const script2 = document.createElement('script');
-    script2.innerHTML = `
-      window.dataLayer = window.dataLayer || [];
-      function gtag(){{dataLayer.push(arguments);}}
-      gtag('js', new Date());
-      gtag('config', '{GA_MEASUREMENT_ID}');
-      gtag('config', '{GT_CONTAINER_ID}');
-    `;
-    docHead.appendChild(script2);
-  }}
-</script>
-"""
-components.html(analytics_injection, height=0, width=0)
+inject_google_analytics()
 
 # ==========================================
 # CONFIGURACIÓN SEGURA (SECRETS DE STREAMLIT)
