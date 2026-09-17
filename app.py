@@ -6,7 +6,7 @@ import os
 import time
 
 logo_path = "logo.png" if os.path.exists("logo.png") else "✍️"
-st.set_page_config(page_title="LyzAI", page_icon=logo_path, layout="wide")
+st.set_page_config(page_title="LyzAI", page_icon=logo_path if os.path.exists("logo.png") else "✍️", layout="wide")
 
 # ==========================================
 # CONFIGURACIÓN SEGURA (SECRETS DE STREAMLIT)
@@ -44,7 +44,13 @@ supabase = get_supabase_client()
 if not st.session_state.user:
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        st.title("📖 LyzAI Studio")
+        # 1. Logo en la pantalla de Inicio de Sesión / Registro
+        if os.path.exists(logo_path):
+            st.image(logo_path, width=90)
+        else:
+            st.markdown("# ✍️")
+            
+        st.title("LyzAI Studio")
         st.caption("Inicia sesión o regístrate para acceder a tu estudio en la nube.")
         
         tab_login, tab_signup = st.tabs(["Iniciar Sesión", "Registrarse"])
@@ -122,6 +128,10 @@ def cargar_biblioteca_nube():
     return library
 
 with st.sidebar:
+    # 2. Logo en la barra lateral (Menú)
+    if os.path.exists(logo_path):
+        st.image(logo_path, width=70)
+    
     st.title("LyzAI Menu")
     st.write(f"👤 `{st.session_state.user.email}`")
     
@@ -200,6 +210,10 @@ elif st.session_state.current_view in all_genres:
         st.rerun()
 
 else:
+    # 3. Logo en la Pantalla Principal
+    if os.path.exists(logo_path):
+        st.image(logo_path, width=80)
+        
     st.title("LyzAI")
     st.caption("Tu asistente de escritura creativa en la nube")
 
@@ -267,6 +281,10 @@ else:
 
                     st.markdown(text)
                     st.session_state.messages.append({"role": "assistant", "content": text})
+                except Exception as e:
+                    error_msg = f"⚠️ Error: {e}"
+                    st.error(error_msg)
+                    st.session_state.messages.append({"role": "assistant", "content": error_msg})
                 except Exception as e:
                     error_msg = f"⚠️ Error: {e}"
                     st.error(error_msg)
