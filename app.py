@@ -91,7 +91,7 @@ all_genres = [g for sublist in library_categories.values() for g in sublist]
 supabase = get_supabase_client()
 
 # ==========================================
-# GESTIÓN DE SESIÓN Y PERSISTENCIA DE VISTA
+# GESTIÓN DE SESIÓN Y PERSISTENCIA ROBUSTA
 # ==========================================
 if "user" not in st.session_state:
   st.session_state.user = None
@@ -99,6 +99,15 @@ if "user" not in st.session_state:
     session_res = supabase.auth.get_session()
     if session_res and session_res.user:
       st.session_state.user = session_res.user
+  except Exception:
+    pass
+
+# Si el cliente local tiene una sesión guardada pero st.session_state no lo capturó
+if not st.session_state.user:
+  try:
+    current_session = supabase.auth.get_session()
+    if current_session and current_session.user:
+      st.session_state.user = current_session.user
   except Exception:
     pass
 
@@ -118,7 +127,8 @@ def cambiar_estado_vista(app_mode, current_v):
   st.query_params["current_view"] = current_v
   st.rerun()
 
-if st.session_state.user and st.session_state.app_view_mode in ["landing", "auth"]:
+# Si hay usuario autenticado, forzar siempre la vista de la app (evita que F5 devuelva al login)
+if st.session_state.user:
   st.session_state.app_view_mode = "app"
   st.query_params["app_view_mode"] = "app"
 
@@ -476,12 +486,22 @@ else:
       if st.button("💾 Guardar Obra", type="primary", use_container_width=True, key="btn_guardar_obra_automatico"):
         try:
           contenido_total = "\n".join([f"{m['role'].upper()}: {m['content']}" for m in st.session_state.messages])
-          supabase.table("obras").upsert({
-              "user_id": st.session_state.user.id,
-              "titulo": input_titulo_obra,
-              "genero": input_genero_obra,
-              "contenido": contenido_total,
-          }, on_conflict="user_id,titulo").execute()
+          
+          # Manejo robusto usando inserción o actualización mediante verificación previa
+          existing = supabase.table("obras").select("id").eq("user_id", st.session_state.user.id).eq("titulo", input_titulo_obra).execute()
+          if existing.data and len(existing.data) > 0:
+            supabase.table("obras").update({
+                "genero": input_genero_obra,
+                "contenido": contenido_total,
+            }).eq("user_id", st.session_state.user.id).eq("titulo", input_titulo_obra).execute()
+          else:
+            supabase.table("obras").insert({
+                "user_id": st.session_state.user.id,
+                "titulo": input_titulo_obra,
+                "genero": input_genero_obra,
+                "contenido": contenido_total,
+            }).execute()
+
           st.success(f"✨ ¡Obra '{input_titulo_obra}' guardada en el estante de {input_genero_obra}!")
         except Exception as ex:
           st.warning(f"No se pudo guardar la obra: {ex}")
