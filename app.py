@@ -70,7 +70,13 @@ def enviar_mensaje_seguro(chat_session, mensaje):
     try:
       return chat_session.send_message(mensaje)
     except Exception as e:
-      if ("503" in str(e) or "UNAVAILABLE" in str(e) or "429" in str(e)) and intento < max_intentos - 1:
+      error_str = str(e)
+      if "429" in error_str or "RESOURCE_EXHAUSTED" in error_str:
+        raise Exception(
+            "⚠️ **¡Has alcanzado el límite de solicitudes gratuitas para el día de hoy!** Por favor, intenta de nuevo más tarde o mañana cuando se renueve tu cuota."
+        )
+      
+      if ("503" in error_str or "UNAVAILABLE" in error_str) and intento < max_intentos - 1:
         time.sleep(2)
         continue
       raise e
@@ -148,6 +154,13 @@ if not st.session_state.user and st.session_state.app_view_mode == "landing":
     st.write("""
         Bienvenido a **LyzAI Studio**, tu plataforma impulsada por Inteligencia Artificial para dar vida a tus historias, novelas, poesía y guiones literarios de forma organizada.
         """)
+    
+    with st.container(border=True):
+      st.markdown("### 📌 ¿Cómo empezar?")
+      st.markdown("1. Haz clic en el botón de abajo para iniciar sesión o registrarte.")
+      st.markdown("2. Chatea con LyzAI para desarrollar tu trama, personajes o capítulos.")
+      st.markdown("3. Guarda tu obra en la nube para acceder a ella cuando quieras.")
+
     st.markdown("---")
     if st.button("🚀 Comenzar / Iniciar Sesión", use_container_width=True, type="primary"):
       cambiar_estado_vista("auth", "chat")
@@ -165,6 +178,9 @@ if not st.session_state.user and st.session_state.app_view_mode == "auth":
       st.markdown("# ✍️")
 
     st.title("Acceso a LyzAI Studio")
+    
+    st.info("💡 **Nota:** Inicia sesión con tu cuenta existente o regístrate en segundos para guardar tus obras literarias de forma segura en la nube.")
+    
     tab_login, tab_signup = st.tabs(["Iniciar Sesión", "Registrarse"])
 
     with tab_login:
@@ -313,6 +329,8 @@ with st.sidebar:
   else:
     st.write("👤 `Sesión activa`")
 
+  st.caption("ℹ️ **Menú principal:** Usa estas opciones para cerrar sesión, iniciar un chat limpio o explorar tus obras guardadas.")
+
   if st.button("Cerrar Sesión", use_container_width=True, key="btn_cerrar_sesion_sidebar"):
     try:
       supabase.auth.sign_out()
@@ -340,6 +358,8 @@ with st.sidebar:
 
   st.markdown("---")
   st.markdown("### 📚 Biblioteca en la Nube")
+  st.caption("📂 Haz clic en una categoría para ver tus obras guardadas por género, descargarlas, editarlas o eliminarlas.")
+  
   library_data = cargar_biblioteca_nube()
 
   for cat_name, genres_in_cat in library_categories.items():
@@ -352,6 +372,8 @@ with st.sidebar:
 
   st.markdown("---")
   st.markdown("### 🕒 Historial por Días y Temas")
+  st.caption("🕒 Retoma conversaciones anteriores con la IA haciendo clic en cualquiera de tus chats previos.")
+  
   historial_chats = cargar_historial_conversaciones()
   if not historial_chats:
     st.caption("Aún no hay chats guardados.")
@@ -394,6 +416,8 @@ with st.sidebar:
 # ==========================================
 if st.session_state.current_view == "modifier":
   st.title("⚙️ Personalizar Accesos Directos Favoritos")
+  st.caption("💡 **Paso a paso:** Selecciona tus 4 géneros preferidos para tenerlos siempre a mano en la pantalla principal del chat.")
+  
   with st.form("shortcut_form"):
     selected_choices = st.multiselect(
         "Elige exactamente 4 géneros favoritos:",
@@ -416,6 +440,8 @@ if st.session_state.current_view == "modifier":
 elif st.session_state.current_view in all_genres:
   genre = st.session_state.current_view
   st.title(f"📚 Estante de {genre}")
+  st.caption("📖 Aquí puedes revisar todas tus obras publicadas o guardadas en este género. Puedes descargarlas, continuar editándolas en el chat o eliminarlas.")
+  
   works_dict = library_data.get(genre, {})
   if not works_dict:
     st.info(f"Aún no hay obras registradas en el género {genre}.")
@@ -490,6 +516,8 @@ else:
   st.caption("Tu asistente de escritura creativa en la nube")
 
   st.write("### 🚀 Accesos Directos Favoritos")
+  st.caption("💡 **Función:** Haz clic en cualquiera de estos géneros para iniciar rápidamente una sesión de escritura guiada por la IA.")
+  
   cols = st.columns(5)
   selected_prompt = None
   favs = st.session_state.favorite_shortcuts
@@ -513,6 +541,9 @@ else:
   # PANEL AUTOMÁTICO DE GUARDADO DE OBRA
   # ==========================================
   with st.container(border=True):
+    st.markdown("### 💾 Guardar o Actualizar Obra en la Nube")
+    st.caption("📝 **Paso a paso:** Escribe el título que desees para tu obra, selecciona el género correcto y haz clic en **Guardar Obra**. El sistema validará automáticamente que no exista un título idéntico registrado previamente.")
+    
     col_g1, col_g2, col_g3 = st.columns([2, 2, 1])
     with col_g1:
       input_titulo_obra = st.text_input("Título de la obra:", value=st.session_state.current_conversation_title, key="input_titulo_obra_auto")
@@ -549,6 +580,7 @@ else:
           st.warning(f"No se pudo guardar la obra: {ex}")
 
   st.write("---")
+  st.caption("💬 **Chat con LyzAI:** Escribe abajo tus ideas, pide sugerencias de tramas, personajes o capítulos para tu historia.")
 
   for message in st.session_state.messages:
     with st.chat_message(message["role"]):
@@ -567,7 +599,9 @@ else:
           st.session_state.messages.append({"role": "assistant", "content": text_resp})
           guardar_conversacion_actual(st.session_state.current_conversation_title)
         except Exception as e:
-          st.warning(f"Tuvimos un inconveniente al procesar tu solicitud: {e}. Intenta nuevamente en unos segundos.")
+          error_msg = str(e)
+          st.warning(error_msg)
+          st.session_state.messages.append({"role": "assistant", "content": error_msg})
     st.rerun()
 
   if prompt := st.chat_input("Escribe tu mensaje..."):
@@ -585,6 +619,6 @@ else:
           st.session_state.messages.append({"role": "assistant", "content": text})
           guardar_conversacion_actual(st.session_state.current_conversation_title)
         except Exception as e:
-          error_msg = f"⚠️ Nota del sistema: Ocurrió un detalle técnico temporal ({e}). Por favor, reintenta enviar tu mensaje."
+          error_msg = str(e)
           st.warning(error_msg)
           st.session_state.messages.append({"role": "assistant", "content": error_msg})
