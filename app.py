@@ -119,6 +119,9 @@ if "app_view_mode" not in st.session_state:
 if "current_view" not in st.session_state:
   st.session_state.current_view = query_params.get("current_view", "chat")
 
+if "is_editing_work" not in st.session_state:
+  st.session_state.is_editing_work = False
+
 def cambiar_estado_vista(app_mode, current_v):
   st.session_state.app_view_mode = app_mode
   st.session_state.current_view = current_v
@@ -316,6 +319,7 @@ with st.sidebar:
     except Exception:
       pass
     st.session_state.user = None
+    st.session_state.is_editing_work = False
     cambiar_estado_vista("landing", "chat")
 
   if st.button("💬 Nueva Conversación", use_container_width=True, key="btn_nueva_conv_sidebar"):
@@ -331,6 +335,7 @@ with st.sidebar:
     }]
     st.session_state.current_conversation_title = "Nueva Conversación"
     st.session_state.current_genre = "Fantasía"
+    st.session_state.is_editing_work = False
     cambiar_estado_vista("app", "chat")
 
   st.markdown("---")
@@ -381,6 +386,7 @@ with st.sidebar:
           }]
 
         st.session_state.current_conversation_title = tema
+        st.session_state.is_editing_work = False
         cambiar_estado_vista("app", "chat")
 
 # ==========================================
@@ -459,6 +465,7 @@ elif st.session_state.current_view in all_genres:
             
             st.session_state.current_conversation_title = title
             st.session_state.current_genre = genre
+            st.session_state.is_editing_work = True
             cambiar_estado_vista("app", "chat")
 
         with col3:
@@ -494,6 +501,7 @@ else:
         selected_prompt = f"Quiero escribir una obra del género {genre_name}. Guíame paso a paso."
         st.session_state.current_conversation_title = f"Obra de {genre_name}"
         st.session_state.current_genre = genre_name
+        st.session_state.is_editing_work = False
 
   with cols[4]:
     if st.button("⚙️ Modificar", use_container_width=True, key="btn_modificar_favs"):
@@ -518,11 +526,16 @@ else:
           contenido_total = "\n".join([f"{m['role'].upper()}: {m['content']}" for m in st.session_state.messages])
           
           existing = supabase.table("obras").select("id").eq("user_id", st.session_state.user.id).eq("titulo", input_titulo_obra).execute()
+          
           if existing.data and len(existing.data) > 0:
-            supabase.table("obras").update({
-                "genero": input_genero_obra,
-                "contenido": contenido_total,
-            }).eq("user_id", st.session_state.user.id).eq("titulo", input_titulo_obra).execute()
+            if st.session_state.is_editing_work:
+              supabase.table("obras").update({
+                  "genero": input_genero_obra,
+                  "contenido": contenido_total,
+              }).eq("user_id", st.session_state.user.id).eq("titulo", input_titulo_obra).execute()
+              st.success(f"✨ ¡Obra '{input_titulo_obra}' actualizada correctamente!")
+            else:
+              st.error(f"⚠️ Ya existe una obra registrada con el título '{input_titulo_obra}'. Elige otro título o edita la obra existente desde su estante.")
           else:
             supabase.table("obras").insert({
                 "user_id": st.session_state.user.id,
@@ -530,8 +543,8 @@ else:
                 "genero": input_genero_obra,
                 "contenido": contenido_total,
             }).execute()
-
-          st.success(f"✨ ¡Obra '{input_titulo_obra}' guardada en el estante de {input_genero_obra}!")
+            st.session_state.is_editing_work = True
+            st.success(f"✨ ¡Obra '{input_titulo_obra}' guardada en el estante de {input_genero_obra}!")
         except Exception as ex:
           st.warning(f"No se pudo guardar la obra: {ex}")
 
