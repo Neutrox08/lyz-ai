@@ -91,8 +91,21 @@ all_genres = [g for sublist in library_categories.values() for g in sublist]
 if "user" not in st.session_state:
   st.session_state.user = None
 
+# Sincronización de vistas con los Query Params para mantener la pantalla al actualizar
+query_params = st.query_params
+
 if "app_view_mode" not in st.session_state:
-  st.session_state.app_view_mode = "landing"
+  st.session_state.app_view_mode = query_params.get("app_view_mode", "landing")
+
+if "current_view" not in st.session_state:
+  st.session_state.current_view = query_params.get("current_view", "chat")
+
+def cambiar_estado_vista(app_mode, current_v):
+  st.session_state.app_view_mode = app_mode
+  st.session_state.current_view = current_v
+  st.query_params["app_view_mode"] = app_mode
+  st.query_params["current_view"] = current_v
+  st.rerun()
 
 supabase = get_supabase_client()
 
@@ -113,8 +126,7 @@ if not st.session_state.user and st.session_state.app_view_mode == "landing":
         """)
     st.markdown("---")
     if st.button("🚀 Comenzar / Iniciar Sesión", use_container_width=True, type="primary"):
-      st.session_state.app_view_mode = "auth"
-      st.rerun()
+      cambiar_estado_vista("auth", "chat")
   st.stop()
 
 # ==========================================
@@ -141,7 +153,7 @@ if not st.session_state.user and st.session_state.app_view_mode == "auth":
             res = supabase.auth.sign_in_with_password({"email": email_l, "password": password_l})
             st.session_state.user = res.user
             st.success("¡Bienvenido de nuevo!")
-            st.rerun()
+            cambiar_estado_vista("app", "chat")
           except Exception as e:
             st.warning(f"No se pudo iniciar sesión. Verifica tus credenciales (Detalle: {e})")
 
@@ -159,8 +171,7 @@ if not st.session_state.user and st.session_state.app_view_mode == "auth":
 
     st.write("")
     if st.button("⬅️ Volver al inicio"):
-      st.session_state.app_view_mode = "landing"
-      st.rerun()
+      cambiar_estado_vista("landing", "chat")
   st.stop()
 
 # ==========================================
@@ -208,8 +219,6 @@ if "messages" not in st.session_state:
       "content": "¡Hola! Soy LyzAI, tu co-creador literario en la nube. ¿Qué obra fantástica vamos a crear hoy?",
   }]
 
-if "current_view" not in st.session_state:
-  st.session_state.current_view = "chat"
 if "current_conversation_title" not in st.session_state:
   st.session_state.current_conversation_title = "Nueva Conversación"
 
@@ -264,8 +273,7 @@ with st.sidebar:
   if st.button("Cerrar Sesión", use_container_width=True, key="btn_cerrar_sesion_sidebar"):
     supabase.auth.sign_out()
     st.session_state.user = None
-    st.session_state.app_view_mode = "landing"
-    st.rerun()
+    cambiar_estado_vista("landing", "chat")
 
   if st.button("💬 Nueva Conversación", use_container_width=True, key="btn_nueva_conv_sidebar"):
     client = get_genai_client()
@@ -278,9 +286,8 @@ with st.sidebar:
         "role": "assistant",
         "content": "¡Nueva conversación iniciada!",
     }]
-    st.session_state.current_view = "chat"
     st.session_state.current_conversation_title = "Nueva Conversación"
-    st.rerun()
+    cambiar_estado_vista("app", "chat")
 
   st.markdown("---")
   st.markdown("### 📚 Biblioteca en la Nube")
@@ -292,8 +299,7 @@ with st.sidebar:
         works_dict = library_data.get(genre, {})
         count = len(works_dict)
         if st.button(f"📖 {genre} ({count})", use_container_width=True, key=f"lib_btn_{genre}"):
-          st.session_state.current_view = genre
-          st.rerun()
+          cambiar_estado_vista("app", genre)
 
   st.markdown("---")
   st.markdown("### 🕒 Historial por Días y Temas")
@@ -325,13 +331,11 @@ if st.session_state.current_view == "modifier":
         st.session_state.favorite_shortcuts = selected_choices
         guardar_preferencias_usuario(selected_choices)
         st.success("¡Tus accesos directos favoritos se han guardado permanentemente!")
-        st.session_state.current_view = "chat"
-        st.rerun()
+        cambiar_estado_vista("app", "chat")
       else:
         st.warning("Debes seleccionar exactamente 4 géneros para continuar.")
   if st.button("⬅️ Volver al Chat", key="btn_volver_chat_mod"):
-    st.session_state.current_view = "chat"
-    st.rerun()
+    cambiar_estado_vista("app", "chat")
 
 elif st.session_state.current_view in all_genres:
   genre = st.session_state.current_view
@@ -369,8 +373,7 @@ elif st.session_state.current_view in all_genres:
               st.warning(f"No se pudo eliminar la obra: {e}")
   st.write("")
   if st.button("⬅️ Volver al Chat", key=f"btn_volver_chat_estante_{genre}"):
-    st.session_state.current_view = "chat"
-    st.rerun()
+    cambiar_estado_vista("app", "chat")
 
 else:
   if os.path.exists(logo_path):
@@ -393,8 +396,7 @@ else:
 
   with cols[4]:
     if st.button("⚙️ Modificar", use_container_width=True, key="btn_modificar_favs"):
-      st.session_state.current_view = "modifier"
-      st.rerun()
+      cambiar_estado_vista("app", "modifier")
 
   st.write("---")
 
