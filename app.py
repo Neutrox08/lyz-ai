@@ -335,8 +335,34 @@ with st.sidebar:
     for h in historial_chats[:5]:
       fecha = h.get("ultima_fecha", "Sin fecha")
       tema = h.get("tema", "Sin tema")
+      contenido_guardado = h.get("contenido", "")
+
       if st.button(f"📅 {fecha} — {tema}", use_container_width=True, key=f"hist_{h.get('id', tema)}"):
-        st.info(f"Tema seleccionado: {tema} ({fecha})")
+        mensajes_reconstruidos = []
+        if contenido_guardado:
+          lineas = contenido_guardado.split("\n")
+          for linea in lineas:
+            if linea.startswith("USER:"):
+              mensajes_reconstruidos.append({
+                  "role": "user",
+                  "content": linea.replace("USER:", "").strip(),
+              })
+            elif linea.startswith("ASSISTANT:"):
+              mensajes_reconstruidos.append({
+                  "role": "assistant",
+                  "content": linea.replace("ASSISTANT:", "").strip(),
+              })
+
+        if mensajes_reconstruidos:
+          st.session_state.messages = mensajes_reconstruidos
+        else:
+          st.session_state.messages = [{
+              "role": "assistant",
+              "content": f"Conversación recuperada del tema: *{tema}* ({fecha})",
+          }]
+
+        st.session_state.current_conversation_title = tema
+        cambiar_estado_vista("app", "chat")
 
 # ==========================================
 # VISTAS PRINCIPALES
@@ -469,7 +495,6 @@ else:
               tag = text.split("[GUARDAR_OBRA:")[1].split("]")[0].strip()
               if "|" in tag:
                 t_det, g_det = [p.strip() for p in tag.split("|", 1)]
-                # Mapeo inteligente por si la IA usa Fanfiction u otra variante
                 if g_det.lower() in ["fanfiction", "fan-fiction"]:
                   g_det = "Fanfic"
                 
