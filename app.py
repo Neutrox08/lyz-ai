@@ -88,14 +88,28 @@ library_categories = {
 
 all_genres = [g for sublist in library_categories.values() for g in sublist]
 
+supabase = get_supabase_client()
+
+# ==========================================
+# GESTIÓN INTELIGENTE DE SESIÓN Y VISTAS
+# ==========================================
 if "user" not in st.session_state:
   st.session_state.user = None
+  try:
+    # Intentar recuperar sesión activa previa de Supabase automáticamente
+    session_res = supabase.auth.get_session()
+    if session_res and session_res.user:
+      st.session_state.user = session_res.user
+  except Exception:
+    pass
 
-# Sincronización de vistas con los Query Params para mantener la pantalla al actualizar
+# Sincronización de vistas con los Query Params
 query_params = st.query_params
 
 if "app_view_mode" not in st.session_state:
-  st.session_state.app_view_mode = query_params.get("app_view_mode", "landing")
+  # Si el usuario ya tiene sesión activa, por defecto arrancamos en "app", si no en "landing"
+  default_mode = "app" if st.session_state.user else "landing"
+  st.session_state.app_view_mode = query_params.get("app_view_mode", default_mode)
 
 if "current_view" not in st.session_state:
   st.session_state.current_view = query_params.get("current_view", "chat")
@@ -107,7 +121,10 @@ def cambiar_estado_vista(app_mode, current_v):
   st.query_params["current_view"] = current_v
   st.rerun()
 
-supabase = get_supabase_client()
+# Si ya hay usuario autenticado pero la vista apuntaba a landing/auth, forzar modo "app"
+if st.session_state.user and st.session_state.app_view_mode in ["landing", "auth"]:
+  st.session_state.app_view_mode = "app"
+  st.query_params["app_view_mode"] = "app"
 
 # ==========================================
 # 1. PANTALLA DE BIENVENIDA (PÚBLICA)
@@ -173,6 +190,10 @@ if not st.session_state.user and st.session_state.app_view_mode == "auth":
     if st.button("⬅️ Volver al inicio"):
       cambiar_estado_vista("landing", "chat")
   st.stop()
+
+# Si por alguna razón no hay usuario en este punto, frenar ejecución
+if not st.session_state.user:
+  cambiar_estado_vista("landing", "chat")
 
 # ==========================================
 # CARGAR PREFERENCIAS DE USUARIO DESDE SUPABASE
@@ -269,11 +290,10 @@ with st.sidebar:
 
   st.title("LyzAI Menu")
   
-  # Validación segura para evitar el AttributeError si el usuario recarga sin sesión activa
   if st.session_state.user and hasattr(st.session_state.user, "email"):
     st.write(f"👤 `{st.session_state.user.email}`")
   else:
-    st.write("👤 `Sesión expirada`")
+    st.write("👤 `Sesión activa`")
 
   if st.button("Cerrar Sesión", use_container_width=True, key="btn_cerrar_sesion_sidebar"):
     supabase.auth.sign_out()
