@@ -91,23 +91,15 @@ all_genres = [g for sublist in library_categories.values() for g in sublist]
 supabase = get_supabase_client()
 
 # ==========================================
-# GESTIÓN INTELIGENTE DE SESIÓN Y VISTAS
+# GESTIÓN DE SESIÓN PERSISTENTE Y VISTAS
 # ==========================================
 if "user" not in st.session_state:
   st.session_state.user = None
-  try:
-    # Intentar recuperar sesión activa previa de Supabase automáticamente
-    session_res = supabase.auth.get_session()
-    if session_res and session_res.user:
-      st.session_state.user = session_res.user
-  except Exception:
-    pass
 
-# Sincronización de vistas con los Query Params
+# Intentar recuperar datos del usuario almacenados en st.session_state o query_params
 query_params = st.query_params
 
 if "app_view_mode" not in st.session_state:
-  # Si el usuario ya tiene sesión activa, por defecto arrancamos en "app", si no en "landing"
   default_mode = "app" if st.session_state.user else "landing"
   st.session_state.app_view_mode = query_params.get("app_view_mode", default_mode)
 
@@ -121,7 +113,16 @@ def cambiar_estado_vista(app_mode, current_v):
   st.query_params["current_view"] = current_v
   st.rerun()
 
-# Si ya hay usuario autenticado pero la vista apuntaba a landing/auth, forzar modo "app"
+# Si hay un token guardado en los parámetros o memoria de Supabase, validamos la sesión
+if not st.session_state.user:
+  try:
+    session_data = supabase.auth.get_session()
+    if session_data and session_data.user:
+      st.session_state.user = session_data.user
+  except Exception:
+    pass
+
+# Si el usuario ya está autenticado, aseguramos que la vista sea "app"
 if st.session_state.user and st.session_state.app_view_mode in ["landing", "auth"]:
   st.session_state.app_view_mode = "app"
   st.query_params["app_view_mode"] = "app"
@@ -169,6 +170,9 @@ if not st.session_state.user and st.session_state.app_view_mode == "auth":
           try:
             res = supabase.auth.sign_in_with_password({"email": email_l, "password": password_l})
             st.session_state.user = res.user
+            # Guardamos el token de acceso en supabase para persistencia entre recargas
+            if res.session:
+              supabase.auth.set_session(res.session.access_token, res.session.refresh_token)
             st.success("¡Bienvenido de nuevo!")
             cambiar_estado_vista("app", "chat")
           except Exception as e:
@@ -191,7 +195,6 @@ if not st.session_state.user and st.session_state.app_view_mode == "auth":
       cambiar_estado_vista("landing", "chat")
   st.stop()
 
-# Si por alguna razón no hay usuario en este punto, frenar ejecución
 if not st.session_state.user:
   cambiar_estado_vista("landing", "chat")
 
@@ -296,7 +299,10 @@ with st.sidebar:
     st.write("👤 `Sesión activa`")
 
   if st.button("Cerrar Sesión", use_container_width=True, key="btn_cerrar_sesion_sidebar"):
-    supabase.auth.sign_out()
+    try:
+      supabase.auth.sign_out()
+    except Exception:
+      pass
     st.session_state.user = None
     cambiar_estado_vista("landing", "chat")
 
