@@ -198,7 +198,7 @@ if "chat" not in st.session_state:
     REGLA DE ORO 2: Cuando inicies o conduzcas una sesión temática relevante, puedes proponer o actualizar un tema corto para la conversación usando la etiqueta: [TEMA_CONVERSACION: Nombre Breve del Tema]
     """
   st.session_state.chat = client.chats.create(
-      model="gemini-2.5-flash",
+      model="gemini-3.6-flash",
       config=types.GenerateContentConfig(system_instruction=system_instruction, temperature=0.7),
   )
 
@@ -271,7 +271,7 @@ with st.sidebar:
     client = get_genai_client()
     system_instruction = "Eres LyzAI, un asistente de escritura creativa de clase mundial."
     st.session_state.chat = client.chats.create(
-        model="gemini-2.5-flash",
+        model="gemini-3.6-flash",
         config=types.GenerateContentConfig(system_instruction=system_instruction, temperature=0.7),
     )
     st.session_state.messages = [{
@@ -301,7 +301,7 @@ with st.sidebar:
   if not historial_chats:
     st.caption("Aún no hay chats guardados.")
   else:
-    for h in historial_chats[:5]: # Muestra los últimos 5
+    for h in historial_chats[:5]:
       fecha = h.get("ultima_fecha", "Sin fecha")
       tema = h.get("tema", "Sin tema")
       if st.button(f"📅 {fecha} — {tema}", use_container_width=True, key=f"hist_{h.get('id', tema)}"):
