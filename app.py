@@ -1,5 +1,6 @@
 import os
 import pathlib
+import re
 import time
 from google import genai
 from google.genai import types
@@ -196,7 +197,7 @@ if not st.session_state.user:
 # CARGAR PREFERENCIAS DE USUARIO DESDE SUPABASE
 # ==========================================
 def cargar_preferencias_usuario():
-  default_favs = ["Fantasía", "Ciencia Ficción", "Ficción Histórica", "Distopía"]
+  default_favs = ["Fantasía", "Ciencia Ficción", "Romance", "Misterio y Thriller"]
   try:
     res = supabase.table("preferencias_usuario").select("favoritos").eq("user_id", st.session_state.user.id).execute()
     if res.data and len(res.data) > 0 and "favoritos" in res.data[0]:
@@ -223,7 +224,7 @@ if "chat" not in st.session_state:
   client = get_genai_client()
   system_instruction = """
     Eres "LyzAI", un asistente de escritura creativa de clase mundial.
-    REGLA DE ORO 1: Cuando el capítulo o la obra esté lista para guardarse, incluye al final de tu respuesta la etiqueta exacta: [GUARDAR_OBRA: Título | Género] (el género debe ser uno de los permitidos).
+    REGLA DE ORO 1: Cuando el capítulo o la obra esté lista, incluye al final de tu respuesta la etiqueta exacta con este formato: [GUARDAR_OBRA: Título | Género] (el género debe ser exactamente uno de los permitidos).
     REGLA DE ORO 2: En cada interacción, incluye un tema descriptivo corto usando la etiqueta: [TEMA_CONVERSACION: Nombre Breve del Tema]
     """
   st.session_state.chat = client.chats.create(
@@ -451,30 +452,28 @@ else:
 
   st.write("---")
 
-  # Renderizar mensajes del chat con soporte para botones de guardado interactivos
+  # Renderizar mensajes del chat con botones interactivos de guardado robustos
   for idx, message in enumerate(st.session_state.messages):
     with st.chat_message(message["role"]):
       content_to_show = message["content"]
       guardar_info = None
 
-      # Extraer etiqueta de guardado si existe en el mensaje del asistente
       if message["role"] == "assistant" and "[GUARDAR_OBRA:" in content_to_show:
         try:
-          partes = content_to_show.split("[GUARDAR_OBRA:")
-          content_to_show = partes[0].strip()
-          tag_completa = partes[1].split("]")[0].strip()
-          if "|" in tag_completa:
-            t_det, g_det = [p.strip() for p in tag_completa.split("|", 1)]
+          match = re.search(r'\[GUARDAR_OBRA:\s*(.*?)\s*\Vert{}\s*(.*?)\]', content_to_show)
+          if match:
+            t_det = match.group(1).strip()
+            g_det = match.group(2).strip()
             if g_det.lower() in ["fanfiction", "fan-fiction"]:
               g_det = "Fanfic"
             if g_det in all_genres:
               guardar_info = (t_det, g_det)
+            content_to_show = re.sub(r'\[GUARDAR_OBRA:.*?\]', '', content_to_show).strip()
         except Exception:
           pass
 
       st.markdown(content_to_show)
 
-      # Renderizar botón de guardado interactivo si la IA propuso guardar la obra
       if guardar_info:
         t_det, g_det = guardar_info
         btn_key = f"btn_guardar_obra_{idx}"
