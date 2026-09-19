@@ -91,12 +91,17 @@ all_genres = [g for sublist in library_categories.values() for g in sublist]
 supabase = get_supabase_client()
 
 # ==========================================
-# GESTIÓN DE SESIÓN PERSISTENTE Y VISTAS
+# GESTIÓN DE SESIÓN Y PERSISTENCIA DE VISTA
 # ==========================================
 if "user" not in st.session_state:
   st.session_state.user = None
+  try:
+    session_res = supabase.auth.get_session()
+    if session_res and session_res.user:
+      st.session_state.user = session_res.user
+  except Exception:
+    pass
 
-# Intentar recuperar datos del usuario almacenados en st.session_state o query_params
 query_params = st.query_params
 
 if "app_view_mode" not in st.session_state:
@@ -113,16 +118,6 @@ def cambiar_estado_vista(app_mode, current_v):
   st.query_params["current_view"] = current_v
   st.rerun()
 
-# Si hay un token guardado en los parámetros o memoria de Supabase, validamos la sesión
-if not st.session_state.user:
-  try:
-    session_data = supabase.auth.get_session()
-    if session_data and session_data.user:
-      st.session_state.user = session_data.user
-  except Exception:
-    pass
-
-# Si el usuario ya está autenticado, aseguramos que la vista sea "app"
 if st.session_state.user and st.session_state.app_view_mode in ["landing", "auth"]:
   st.session_state.app_view_mode = "app"
   st.query_params["app_view_mode"] = "app"
@@ -170,7 +165,6 @@ if not st.session_state.user and st.session_state.app_view_mode == "auth":
           try:
             res = supabase.auth.sign_in_with_password({"email": email_l, "password": password_l})
             st.session_state.user = res.user
-            # Guardamos el token de acceso en supabase para persistencia entre recargas
             if res.session:
               supabase.auth.set_session(res.session.access_token, res.session.refresh_token)
             st.success("¡Bienvenido de nuevo!")
@@ -229,8 +223,8 @@ if "chat" not in st.session_state:
   client = get_genai_client()
   system_instruction = """
     Eres "LyzAI", un asistente de escritura creativa de clase mundial.
-    REGLA DE ORO 1: Cuando un capítulo o título esté listo, incluye al final la etiqueta exacta: [GUARDAR_OBRA: Título | Género]
-    REGLA DE ORO 2: Cuando inicies o conduzcas una sesión temática relevante, puedes proponer o actualizar un tema corto para la conversación usando la etiqueta: [TEMA_CONVERSACION: Nombre Breve del Tema]
+    REGLA DE ORO 1: Cuando guardes una obra, usa estrictamente uno de estos géneros exactos en la etiqueta [GUARDAR_OBRA: Título | Género]: Fantasía, Ciencia Ficción, Ficción Histórica, Distopía, Poesía, Fanfic, Realismo Mágico, Terror / Horror, Aventura, Romance, Misterio y Thriller, Drama, Ensayo / Filosofía.
+    REGLA DE ORO 2: En cada interacción, incluye un tema descriptivo corto usando la etiqueta: [TEMA_CONVERSACION: Nombre Breve del Tema]
     """
   st.session_state.chat = client.chats.create(
       model="gemini-3.6-flash",
@@ -443,8 +437,9 @@ else:
       with st.spinner("Conectando con la IA..."):
         try:
           response = enviar_mensaje_seguro(st.session_state.chat, selected_prompt)
-          st.markdown(response.text)
-          st.session_state.messages.append({"role": "assistant", "content": response.text})
+          text_resp = response.text
+          st.markdown(text_resp)
+          st.session_state.messages.append({"role": "assistant", "content": text_resp})
           guardar_conversacion_actual(st.session_state.current_conversation_title)
         except Exception as e:
           st.warning(f"Tuvimos un inconveniente al procesar tu solicitud: {e}. Intenta nuevamente en unos segundos.")
@@ -474,6 +469,10 @@ else:
               tag = text.split("[GUARDAR_OBRA:")[1].split("]")[0].strip()
               if "|" in tag:
                 t_det, g_det = [p.strip() for p in tag.split("|", 1)]
+                # Mapeo inteligente por si la IA usa Fanfiction u otra variante
+                if g_det.lower() in ["fanfiction", "fan-fiction"]:
+                  g_det = "Fanfic"
+                
                 if g_det in all_genres:
                   contenido_total = "\n".join([f"{m['role'].upper()}: {m['content']}" for m in st.session_state.messages])
                   supabase.table("obras").upsert({
