@@ -424,7 +424,7 @@ elif st.session_state.current_view in all_genres:
             disabled=True,
             key=f"prev_{genre}_{title}",
         )
-        col1, col2 = st.columns(2)
+        col1, col2, col3 = st.columns(3)
         with col1:
           st.download_button(
               "📥 Descargar TXT",
@@ -434,6 +434,34 @@ elif st.session_state.current_view in all_genres:
               key=f"dl_{genre}_{title}",
           )
         with col2:
+          if st.button("✏️ Editar en Chat", key=f"edit_{genre}_{title}"):
+            mensajes_reconstruidos = []
+            lineas = content.split("\n")
+            for linea in lineas:
+              if linea.startswith("USER:"):
+                mensajes_reconstruidos.append({
+                    "role": "user",
+                    "content": linea.replace("USER:", "").strip(),
+                })
+              elif linea.startswith("ASSISTANT:"):
+                mensajes_reconstruidos.append({
+                    "role": "assistant",
+                    "content": linea.replace("ASSISTANT:", "").strip(),
+                })
+            
+            if mensajes_reconstruidos:
+              st.session_state.messages = mensajes_reconstruidos
+            else:
+              st.session_state.messages = [{
+                  "role": "assistant",
+                  "content": content,
+              }]
+            
+            st.session_state.current_conversation_title = title
+            st.session_state.current_genre = genre
+            cambiar_estado_vista("app", "chat")
+
+        with col3:
           if st.button("🗑️ Eliminar", key=f"del_{genre}_{title}"):
             try:
               supabase.table("obras").delete().eq("user_id", st.session_state.user.id).eq("titulo", title).execute()
