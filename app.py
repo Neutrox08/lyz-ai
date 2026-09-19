@@ -158,7 +158,7 @@ if not st.session_state.user and st.session_state.app_view_mode == "landing":
     with st.container(border=True):
       st.markdown("### 📌 ¿Cómo empezar?")
       st.markdown("1. Haz clic en el botón de abajo para iniciar sesión o registrarte.")
-      st.markdown("2. Chatea con LyzAI para desarrollar tu trama, personajes o capítulos.")
+      st.markdown("2. Chatea, usa el micrófono o adjunta archivos/enlaces con LyzAI.")
       st.markdown("3. Guarda tu obra en la nube para acceder a ella cuando quieras.")
 
     st.markdown("---")
@@ -178,7 +178,6 @@ if not st.session_state.user and st.session_state.app_view_mode == "auth":
       st.markdown("# ✍️")
 
     st.title("Acceso a LyzAI Studio")
-    
     st.info("💡 **Nota:** Inicia sesión con tu cuenta existente o regístrate en segundos para guardar tus obras literarias de forma segura en la nube.")
     
     tab_login, tab_signup = st.tabs(["Iniciar Sesión", "Registrarse"])
@@ -580,7 +579,26 @@ else:
           st.warning(f"No se pudo guardar la obra: {ex}")
 
   st.write("---")
-  st.caption("💬 **Chat con LyzAI:** Escribe abajo tus ideas, pide sugerencias de tramas, personajes o capítulos para tu historia.")
+  st.markdown("### 💬 Chat Multimedia con LyzAI")
+  st.caption("🎙️ **Micrófono y Adjuntos:** Puedes grabar tu voz, subir imágenes de referencia, archivos (PDF/TXT) o pegar enlaces de YouTube o web para que LyzAI los analice.")
+
+  # ==========================================
+  # PANEL DE ENTRADA MULTIMEDIA (MICRÓFONO Y ADJUNTOS)
+  # ==========================================
+  with st.expander("📎 Opciones avanzadas: Micrófono, Archivos e Enlaces de Referencia", expanded=False):
+    col_mic, col_file, col_link = st.columns(3)
+    
+    with col_mic:
+      st.markdown("##### 🎙️ Micrófono (Voz)")
+      audio_data = st.audio_input("Graba tu mensaje de voz")
+      
+    with col_file:
+      st.markdown("##### 📁 Archivos o Imágenes")
+      uploaded_attachment = st.file_uploader("Sube imagen, PDF o TXT", type=["png", "jpg", "jpeg", "pdf", "txt"], key="attachment_uploader")
+      
+    with col_link:
+      st.markdown("##### 🔗 Enlace Externo")
+      input_enlace_externo = st.text_input("YouTube, PDF Web o Artículo", placeholder="https://youtube.com/... o enlace PDF", key="input_link_ref")
 
   for message in st.session_state.messages:
     with st.chat_message(message["role"]):
@@ -604,15 +622,53 @@ else:
           st.session_state.messages.append({"role": "assistant", "content": error_msg})
     st.rerun()
 
-  if prompt := st.chat_input("Escribe tu mensaje..."):
-    st.session_state.messages.append({"role": "user", "content": prompt})
+  # Capturar entrada por texto, audio o adjuntos
+  chat_text_prompt = st.chat_input("Escribe tu mensaje o consulta...")
+
+  # Determinar si el usuario envió contenido por chat, audio o adjuntos
+  mensaje_a_enviar = None
+  contenido_multimodal = []
+
+  if chat_text_prompt:
+    mensaje_a_enviar = chat_text_prompt
+    contenido_multimodal.append(chat_text_prompt)
+
+  if audio_data is not None:
+    # Procesar audio grabado
+    audio_bytes = audio_data.read()
+    if audio_bytes:
+      audio_part = types.Part.from_bytes(data=audio_bytes, mime_type="audio/wav")
+      contenido_multimodal.append(audio_part)
+      if not mensaje_a_enviar:
+        mensaje_a_enviar = "Analiza este mensaje de audio enviado por voz."
+
+  if uploaded_attachment is not None:
+    file_bytes = uploaded_attachment.read()
+    file_type = uploaded_attachment.type
+    file_part = types.Part.from_bytes(data=file_bytes, mime_type=file_type)
+    contenido_multimodal.append(file_part)
+    if not mensaje_a_enviar:
+      mensaje_a_enviar = f"Analiza este archivo adjunto ({uploaded_attachment.name}):"
+
+  if input_enlace_externo:
+    link_prompt = f"Analiza la información, contexto o contenido del siguiente enlace de referencia: {input_enlace_externo}"
+    contenido_multimodal.append(link_prompt)
+    if not mensaje_a_enviar:
+      mensaje_a_enviar = link_prompt
+
+  if mensaje_a_enviar or len(contenido_multimodal) > 0:
+    # Si tenemos contenido multimedia complejo o texto simple
+    display_text = chat_text_prompt if chat_text_prompt else ("🎙️ *[Mensaje de voz enviado]*" if audio_data else (f"📎 *[Archivo adjunto: {uploaded_attachment.name}]*" if uploaded_attachment else f"🔗 *[Enlace de referencia: {input_enlace_externo}]*"))
+    
+    st.session_state.messages.append({"role": "user", "content": display_text})
     with st.chat_message("user"):
-      st.markdown(prompt)
+      st.markdown(display_text)
 
     with st.chat_message("assistant"):
-      with st.spinner("LyzAI está escribiendo..."):
+      with st.spinner("LyzAI está procesando tu solicitud..."):
         try:
-          response = enviar_mensaje_seguro(st.session_state.chat, prompt)
+          payload = contenido_multimodal if len(contenido_multimodal) > 1 else mensaje_a_enviar
+          response = enviar_mensaje_seguro(st.session_state.chat, payload)
           text = response.text
 
           st.markdown(text)
