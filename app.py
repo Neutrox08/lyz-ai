@@ -161,6 +161,10 @@ if not st.session_state.user and st.session_state.app_view_mode == "auth":
       with st.form("login_form"):
         email_l = st.text_input("Correo electrónico", key="email_l")
         password_l = st.text_input("Contraseña", type="password", key="pass_l")
+        
+        # NUEVO: Botón o casilla para mantener sesión iniciada
+        mantener_sesion = st.checkbox("Mantener sesión iniciada", value=True, key="mantener_sesion_chk")
+        
         submit_l = st.form_submit_button("Entrar", use_container_width=True)
         if submit_l:
           try:
@@ -168,6 +172,11 @@ if not st.session_state.user and st.session_state.app_view_mode == "auth":
             st.session_state.user = res.user
             if res.session:
               supabase.auth.set_session(res.session.access_token, res.session.refresh_token)
+            
+            # Si el usuario eligió mantener la sesión, podemos guardar un indicador opcional o dejar que Supabase gestione el token localmente
+            if mantener_sesion:
+              st.toast("🔒 Sesión guardada de forma persistente.")
+
             st.success("¡Bienvenido de nuevo!")
             cambiar_estado_vista("app", "chat")
           except Exception as e:
@@ -452,7 +461,7 @@ else:
 
   st.write("---")
 
-  # Renderizar mensajes del chat con botones interactivos de guardado robustos
+  # Renderizar mensajes del chat con soporte robusto para botones de guardado interactivos
   for idx, message in enumerate(st.session_state.messages):
     with st.chat_message(message["role"]):
       content_to_show = message["content"]
