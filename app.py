@@ -319,7 +319,7 @@ with st.sidebar:
         "role": "assistant",
         "content": "¡Nueva conversación iniciada!",
     }]
-    st.session_state.current_conversation_title = "Nueva Conversación
+    st.session_state.current_conversation_title = "Nueva Conversación"
     st.session_state.current_genre = "Fantasía"
     cambiar_estado_vista("app", "chat")
 
