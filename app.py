@@ -196,7 +196,7 @@ if not st.session_state.user:
 # CARGAR PREFERENCIAS DE USUARIO DESDE SUPABASE
 # ==========================================
 def cargar_preferencias_usuario():
-  default_favs = ["Fantasía", "Ciencia Ficción", "Romance", "Misterio y Thriller"]
+  default_favs = ["Fantasía", "Ciencia Ficción", "Ficción Histórica", "Distopía"]
   try:
     res = supabase.table("preferencias_usuario").select("favoritos").eq("user_id", st.session_state.user.id).execute()
     if res.data and len(res.data) > 0 and "favoritos" in res.data[0]:
@@ -223,7 +223,7 @@ if "chat" not in st.session_state:
   client = get_genai_client()
   system_instruction = """
     Eres "LyzAI", un asistente de escritura creativa de clase mundial.
-    REGLA DE ORO 1: Cuando guardes una obra, usa estrictamente uno de estos géneros exactos en la etiqueta [GUARDAR_OBRA: Título | Género]: Fantasía, Ciencia Ficción, Ficción Histórica, Distopía, Poesía, Fanfic, Realismo Mágico, Terror / Horror, Aventura, Romance, Misterio y Thriller, Drama, Ensayo / Filosofía.
+    REGLA DE ORO 1: Cuando el capítulo o la obra esté lista para guardarse, incluye al final de tu respuesta la etiqueta exacta: [GUARDAR_OBRA: Título | Género] (el género debe ser uno de los permitidos).
     REGLA DE ORO 2: En cada interacción, incluye un tema descriptivo corto usando la etiqueta: [TEMA_CONVERSACION: Nombre Breve del Tema]
     """
   st.session_state.chat = client.chats.create(
@@ -451,9 +451,45 @@ else:
 
   st.write("---")
 
-  for message in st.session_state.messages:
+  # Renderizar mensajes del chat con soporte para botones de guardado interactivos
+  for idx, message in enumerate(st.session_state.messages):
     with st.chat_message(message["role"]):
-      st.markdown(message["content"])
+      content_to_show = message["content"]
+      guardar_info = None
+
+      # Extraer etiqueta de guardado si existe en el mensaje del asistente
+      if message["role"] == "assistant" and "[GUARDAR_OBRA:" in content_to_show:
+        try:
+          partes = content_to_show.split("[GUARDAR_OBRA:")
+          content_to_show = partes[0].strip()
+          tag_completa = partes[1].split("]")[0].strip()
+          if "|" in tag_completa:
+            t_det, g_det = [p.strip() for p in tag_completa.split("|", 1)]
+            if g_det.lower() in ["fanfiction", "fan-fiction"]:
+              g_det = "Fanfic"
+            if g_det in all_genres:
+              guardar_info = (t_det, g_det)
+        except Exception:
+          pass
+
+      st.markdown(content_to_show)
+
+      # Renderizar botón de guardado interactivo si la IA propuso guardar la obra
+      if guardar_info:
+        t_det, g_det = guardar_info
+        btn_key = f"btn_guardar_obra_{idx}"
+        if st.button(f"💾 Guardar Obra: '{t_det}' ({g_det})", key=btn_key, type="primary"):
+          try:
+            contenido_total = "\n".join([f"{m['role'].upper()}: {m['content']}" for m in st.session_state.messages])
+            supabase.table("obras").upsert({
+                "user_id": st.session_state.user.id,
+                "titulo": t_det,
+                "genero": g_det,
+                "contenido": contenido_total,
+            }, on_conflict="user_id,titulo").execute()
+            st.success(f"✨ ¡Obra '{t_det}' guardada exitosamente en el estante de {g_det}!")
+          except Exception as ex:
+            st.warning(f"No se pudo guardar la obra: {ex}")
 
   if selected_prompt:
     st.session_state.messages.append({"role": "user", "content": selected_prompt})
@@ -489,26 +525,6 @@ else:
               text = text.replace(f"[TEMA_CONVERSACION: {t_tag}]", "")
             except Exception:
               pass
-
-          if "[GUARDAR_OBRA:" in text:
-            try:
-              tag = text.split("[GUARDAR_OBRA:")[1].split("]")[0].strip()
-              if "|" in tag:
-                t_det, g_det = [p.strip() for p in tag.split("|", 1)]
-                if g_det.lower() in ["fanfiction", "fan-fiction"]:
-                  g_det = "Fanfic"
-                
-                if g_det in all_genres:
-                  contenido_total = "\n".join([f"{m['role'].upper()}: {m['content']}" for m in st.session_state.messages])
-                  supabase.table("obras").upsert({
-                      "user_id": st.session_state.user.id,
-                      "titulo": t_det,
-                      "genero": g_det,
-                      "contenido": contenido_total,
-                  }, on_conflict="user_id,titulo").execute()
-                  text = text.replace(f"[GUARDAR_OBRA: {tag}]", "\n\n✨ *[Guardado automáticamente en Supabase]*")
-            except Exception as ex:
-              print(ex)
 
           st.markdown(text)
           st.session_state.messages.append({"role": "assistant", "content": text})
