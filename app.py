@@ -81,6 +81,25 @@ def enviar_mensaje_seguro(chat_session, mensaje):
         continue
       raise e
 
+# Función para generar imágenes con Imagen de Google GenAI
+def generar_imagen_con_ia(prompt_descripcion):
+  try:
+    client = get_genai_client()
+    result = client.models.generate_images(
+        model="imagen-3.0-generate-002",
+        prompt=prompt_descripcion,
+        config=types.GenerateImagesConfig(
+            number_of_images=1,
+            aspect_ratio="1:1",
+            output_mime_type="image/jpeg"
+        )
+    )
+    if result.generated_images:
+      return result.generated_images[0].image.image_bytes
+  except Exception as e:
+    print(f"Error generando imagen: {e}")
+  return None
+
 # ==========================================
 # ESTRUCTURA DE CATEGORÍAS Y GÉNEROS
 # ==========================================
@@ -152,14 +171,14 @@ if not st.session_state.user and st.session_state.app_view_mode == "landing":
 
     st.title("LyzAI Studio — Asistente de Escritura Creativa")
     st.write("""
-        Bienvenido a **LyzAI Studio**, tu plataforma impulsada por Inteligencia Artificial para dar vida a tus historias, novelas, poesía y guiones literarios de forma organizada.
+        Bienvenido a **LyzAI Studio**, tu plataforma impulsada por Inteligencia Artificial para dar vida a tus historias, novelas, poesía e ilustraciones visuales de forma organizada.
         """)
     
     with st.container(border=True):
       st.markdown("### 📌 ¿Cómo empezar?")
       st.markdown("1. Haz clic en el botón de abajo para iniciar sesión o registrarte.")
-      st.markdown("2. Chatea, usa el micrófono o adjunta archivos con la barra flotante.")
-      st.markdown("3. Guarda tu obra en la nube para acceder a ella cuando quieras.")
+      st.markdown("2. Chatea, usa el micrófono, adjunta archivos o genera imágenes.")
+      st.markdown("3. Guarda tu obra y contenido multimedia en la nube.")
 
     st.markdown("---")
     if st.button("🚀 Comenzar / Iniciar Sesión", use_container_width=True, type="primary"):
@@ -178,7 +197,7 @@ if not st.session_state.user and st.session_state.app_view_mode == "auth":
       st.markdown("# ✍️")
 
     st.title("Acceso a LyzAI Studio")
-    st.info("💡 **Nota:** Inicia sesión con tu cuenta existente o regístrate en segundos para guardar tus obras literarias de forma segura en la nube.")
+    st.info("💡 **Nota:** Inicia sesión con tu cuenta existente o regístrate en segundos para guardar tus creaciones de forma segura.")
     
     tab_login, tab_signup = st.tabs(["Iniciar Sesión", "Registrarse"])
 
@@ -265,7 +284,7 @@ if "chat" not in st.session_state:
 if "messages" not in st.session_state:
   st.session_state.messages = [{
       "role": "assistant",
-      "content": "¡Hola! Soy LyzAI, tu co-creador literario en la nube. ¿Qué obra fantástica vamos a crear hoy?",
+      "content": "¡Hola! Soy LyzAI, tu co-creador literario e ilustrador en la nube. ¿Qué obra o imagen vamos a crear hoy?",
   }]
 
 if "current_conversation_title" not in st.session_state:
@@ -328,7 +347,7 @@ with st.sidebar:
   else:
     st.write("👤 `Sesión activa`")
 
-  st.caption("ℹ️ **Menú principal:** Usa estas opciones para cerrar sesión, iniciar un chat limpio o explorar tus obras guardadas.")
+  st.caption("ℹ️ **Menú principal:** Cierra sesión, inicia un chat limpio o navega por tus obras guardadas.")
 
   if st.button("Cerrar Sesión", use_container_width=True, key="btn_cerrar_sesion_sidebar"):
     try:
@@ -357,7 +376,7 @@ with st.sidebar:
 
   st.markdown("---")
   st.markdown("### 📚 Biblioteca en la Nube")
-  st.caption("📂 Haz clic en una categoría para ver tus obras guardadas por género, descargarlas, editarlas o eliminarlas.")
+  st.caption("📂 Explora tus obras por género para descargarlas o editarlas.")
   
   library_data = cargar_biblioteca_nube()
 
@@ -370,8 +389,7 @@ with st.sidebar:
           cambiar_estado_vista("app", genre)
 
   st.markdown("---")
-  st.markdown("### 🕒 Historial por Días y Temas")
-  st.caption("🕒 Retoma conversaciones anteriores con la IA haciendo clic en cualquiera de tus chats previos.")
+  st.markdown("### 🕒 Historial de Chats")
   
   historial_chats = cargar_historial_conversaciones()
   if not historial_chats:
@@ -415,7 +433,7 @@ with st.sidebar:
 # ==========================================
 if st.session_state.current_view == "modifier":
   st.title("⚙️ Personalizar Accesos Directos Favoritos")
-  st.caption("💡 **Paso a paso:** Selecciona tus 4 géneros preferidos para tenerlos siempre a mano en la pantalla principal del chat.")
+  st.caption("💡 Selecciona tus 4 géneros preferidos para tenerlos en la pantalla principal del chat.")
   
   with st.form("shortcut_form"):
     selected_choices = st.multiselect(
@@ -439,7 +457,7 @@ if st.session_state.current_view == "modifier":
 elif st.session_state.current_view in all_genres:
   genre = st.session_state.current_view
   st.title(f"📚 Estante de {genre}")
-  st.caption("📖 Aquí puedes revisar todas tus obras publicadas o guardadas en este género. Puedes descargarlas, continuar editándolas en el chat o eliminarlas.")
+  st.caption("📖 Revisa, descarga o continúa editando tus obras guardadas en este género.")
   
   works_dict = library_data.get(genre, {})
   if not works_dict:
@@ -512,10 +530,9 @@ else:
     st.markdown("# ✍️")
 
   st.title("LyzAI")
-  st.caption("Tu asistente de escritura creativa en la nube")
+  st.caption("Tu asistente de escritura creativa e ilustrador en la nube")
 
   st.write("### 🚀 Accesos Directos Favoritos")
-  st.caption("💡 **Función:** Haz clic en cualquiera de estos géneros para iniciar rápidamente una sesión de escritura guiada por la IA.")
   
   cols = st.columns(5)
   selected_prompt = None
@@ -541,7 +558,6 @@ else:
   # ==========================================
   with st.container(border=True):
     st.markdown("### 💾 Guardar o Actualizar Obra en la Nube")
-    st.caption("📝 **Paso a paso:** Escribe el título que desees para tu obra, selecciona el género correcto y haz clic en **Guardar Obra**. El sistema validará automáticamente que no exista un título idéntico registrado previamente.")
     
     col_g1, col_g2, col_g3 = st.columns([2, 2, 1])
     with col_g1:
@@ -565,7 +581,7 @@ else:
               }).eq("user_id", st.session_state.user.id).eq("titulo", input_titulo_obra).execute()
               st.success(f"✨ ¡Obra '{input_titulo_obra}' actualizada correctamente!")
             else:
-              st.error(f"⚠️ Ya existe una obra registrada con el título '{input_titulo_obra}'. Elige otro título o edita la obra existente desde su estante.")
+              st.error(f"⚠️ Ya existe una obra con el título '{input_titulo_obra}'. Elige otro título.")
           else:
             supabase.table("obras").insert({
                 "user_id": st.session_state.user.id,
@@ -580,11 +596,13 @@ else:
 
   st.write("---")
   st.markdown("### 💬 Chat con LyzAI")
-  st.caption("💬 **Chat:** Escribe abajo tus ideas, pide sugerencias o usa la barra flotante de opciones avanzadas para adjuntar archivos, enlaces o usar el micrófono.")
 
   for message in st.session_state.messages:
     with st.chat_message(message["role"]):
       st.markdown(message["content"])
+      # Si el mensaje contiene una imagen generada en bytes guardada o similar
+      if "image_bytes" in message:
+        st.image(message["image_bytes"], caption="🖼️ Imagen generada por LyzAI", use_container_width=True)
 
   if selected_prompt:
     st.session_state.messages.append({"role": "user", "content": selected_prompt})
@@ -605,36 +623,65 @@ else:
     st.rerun()
 
   # ==========================================
-  # BARRA FLOTANTE DE OPCIONES (ESTILO MODERNO JUNTO AL CHAT)
+  # BARRA FLOTANTE DE OPCIONES Y GENERADOR DE IMÁGENES
   # ==========================================
   with st.container(border=True):
     col_btn_opt1, col_btn_opt2 = st.columns([1, 4])
     with col_btn_opt1:
-      mostrar_opciones = st.toggle("📎 ➕", key="toggle_menu_multimedia", help="Abrir menú de adjuntos y micrófono")
+      mostrar_opciones = st.toggle("📎 ➕", key="toggle_menu_multimedia", help="Abrir menú de adjuntos, micrófono y creación de imágenes")
     with col_btn_opt2:
-      st.caption("Haz clic en el botón de la izquierda para desplegar las opciones de **Micrófono**, **Archivos** o **Enlaces**.")
+      st.caption("Despliega las opciones para **Micrófono**, **Archivos**, **Enlaces** o **Crear Imágenes**.")
 
     uploaded_attachment = None
     audio_data = None
     input_enlace_externo = ""
+    prompt_generar_imagen = ""
 
     if mostrar_opciones:
       st.markdown("---")
-      sub_c1, sub_c2, sub_c3 = st.columns(3)
+      sub_c1, sub_c2, sub_c3, sub_c4 = st.columns(4)
       with sub_c1:
         st.markdown("##### 🎙️ Micrófono")
         audio_data = st.audio_input("Grabar voz")
       with sub_c2:
-        st.markdown("##### 📁 Subir Archivos")
-        uploaded_attachment = st.file_uploader("Imagen, PDF o TXT", type=["png", "jpg", "jpeg", "pdf", "txt"], key="attachment_uploader_bar")
+        st.markdown("##### 📁 Archivos")
+        uploaded_attachment = st.file_uploader("Imagen/PDF/TXT", type=["png", "jpg", "jpeg", "pdf", "txt"], key="att_uploader_bar")
       with sub_c3:
-        st.markdown("##### 🔗 Enlace Externo")
-        input_enlace_externo = st.text_input("YouTube / PDF Web", placeholder="https://...", key="input_link_ref_bar")
+        st.markdown("##### 🔗 Enlace")
+        input_enlace_externo = st.text_input("YouTube / Web", placeholder="https://...", key="input_link_ref_bar")
+      with sub_c4:
+        st.markdown("##### 🎨 Crear Imagen")
+        prompt_generar_imagen = st.text_input("Describe tu imagen...", placeholder="Ej: Un castillo medieval mágico...", key="input_img_gen_bar")
 
   # Capturar entrada por chat de texto nativo
   chat_text_prompt = st.chat_input("Escribe tu mensaje a LyzAI...")
 
-  # Procesar envío unificado
+  # Procesar envío o generación de imagen
+  if prompt_generar_imagen:
+    # Acción exclusiva de generación de imagen
+    img_prompt_display = f"🎨 *[Generar imagen solicitada]:* {prompt_generar_imagen}"
+    st.session_state.messages.append({"role": "user", "content": img_prompt_display})
+    with st.chat_message("user"):
+      st.markdown(img_prompt_display)
+
+    with st.chat_message("assistant"):
+      with st.spinner("✨ Creando tu imagen con IA (esto puede tomar unos segundos)..."):
+        img_bytes = generar_imagen_con_ia(prompt_generar_imagen)
+        if img_bytes:
+          st.image(img_bytes, caption=f"🖼️ {prompt_generar_imagen}", use_container_width=True)
+          st.session_state.messages.append({
+              "role": "assistant",
+              "content": f"Aquí tienes la imagen generada basada en tu descripción: *{prompt_generar_imagen}*",
+              "image_bytes": img_bytes
+          })
+          guardar_conversacion_actual(st.session_state.current_conversation_title)
+        else:
+          err_img = "⚠️ Lo siento, no se pudo generar la imagen en este momento. Inténtalo de nuevo."
+          st.warning(err_img)
+          st.session_state.messages.append({"role": "assistant", "content": err_img})
+    st.rerun()
+
+  # Procesamiento normal de chat, audio, archivos o enlaces
   mensaje_a_enviar = None
   contenido_multimodal = []
 
@@ -659,13 +706,13 @@ else:
       mensaje_a_enviar = f"Analiza este archivo adjunto ({uploaded_attachment.name}):"
 
   if input_enlace_externo:
-    link_prompt = f"Analiza la información y contenido del siguiente enlace de referencia: {input_enlace_externo}"
+    link_prompt = f"Analiza la información del siguiente enlace: {input_enlace_externo}"
     contenido_multimodal.append(link_prompt)
     if not mensaje_a_enviar:
       mensaje_a_enviar = link_prompt
 
   if mensaje_a_enviar or len(contenido_multimodal) > 0:
-    display_text = chat_text_prompt if chat_text_prompt else ("🎙️ *[Mensaje de voz enviado]*" if audio_data else (f"📎 *[Archivo adjunto: {uploaded_attachment.name}]*" if uploaded_attachment else f"🔗 *[Enlace de referencia: {input_enlace_externo}]*"))
+    display_text = chat_text_prompt if chat_text_prompt else ("🎙️ *[Mensaje de voz enviado]*" if audio_data else (f"📎 *[Archivo adjunto: {uploaded_attachment.name}]*" if uploaded_attachment else f"🔗 *[Enlace: {input_enlace_externo}]*"))
     
     st.session_state.messages.append({"role": "user", "content": display_text})
     with st.chat_message("user"):
