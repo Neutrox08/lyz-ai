@@ -81,7 +81,7 @@ def enviar_mensaje_seguro(chat_session, mensaje):
         continue
       raise e
 
-# Función para generar imágenes con Imagen de Google GenAI
+# Función controlada para generar imágenes con Imagen de Google GenAI
 def generar_imagen_con_ia(prompt_descripcion):
   try:
     client = get_genai_client()
@@ -97,6 +97,9 @@ def generar_imagen_con_ia(prompt_descripcion):
     if result.generated_images:
       return result.generated_images[0].image.image_bytes
   except Exception as e:
+    error_str = str(e)
+    if "429" in error_str or "RESOURCE_EXHAUSTED" in error_str:
+      raise Exception("⚠️ Límite diario de generación de imágenes alcanzado. Vuelve a intentarlo mañana.")
     print(f"Error generando imagen: {e}")
   return None
 
@@ -177,7 +180,7 @@ if not st.session_state.user and st.session_state.app_view_mode == "landing":
     with st.container(border=True):
       st.markdown("### 📌 ¿Cómo empezar?")
       st.markdown("1. Haz clic en el botón de abajo para iniciar sesión o registrarte.")
-      st.markdown("2. Chatea, usa el micrófono, adjunta archivos o genera imágenes.")
+      st.markdown("2. Chatea, usa el micrófono, adjunta archivos o genera imágenes de forma controlada.")
       st.markdown("3. Guarda tu obra y contenido multimedia en la nube.")
 
     st.markdown("---")
@@ -600,7 +603,6 @@ else:
   for message in st.session_state.messages:
     with st.chat_message(message["role"]):
       st.markdown(message["content"])
-      # Si el mensaje contiene una imagen generada en bytes guardada o similar
       if "image_bytes" in message:
         st.image(message["image_bytes"], caption="🖼️ Imagen generada por LyzAI", use_container_width=True)
 
@@ -623,7 +625,7 @@ else:
     st.rerun()
 
   # ==========================================
-  # BARRA FLOTANTE DE OPCIONES Y GENERADOR DE IMÁGENES
+  # BARRA FLOTANTE DE OPCIONES Y GENERADOR SEGURO DE IMÁGENES
   # ==========================================
   with st.container(border=True):
     col_btn_opt1, col_btn_opt2 = st.columns([1, 4])
@@ -635,6 +637,7 @@ else:
     uploaded_attachment = None
     audio_data = None
     input_enlace_externo = ""
+    ejecutar_generacion_imagen = False
     prompt_generar_imagen = ""
 
     if mostrar_opciones:
@@ -651,14 +654,21 @@ else:
         input_enlace_externo = st.text_input("YouTube / Web", placeholder="https://...", key="input_link_ref_bar")
       with sub_c4:
         st.markdown("##### 🎨 Crear Imagen")
-        prompt_generar_imagen = st.text_input("Describe tu imagen...", placeholder="Ej: Un castillo medieval mágico...", key="input_img_gen_bar")
+        prompt_generar_imagen = st.text_input("Describe tu imagen...", placeholder="Ej: Un castillo mágico...", key="input_img_gen_bar")
+        # El botón evita que se ejecute en bucle; solo actúa al hacer clic explícitamente:
+        if st.button("✨ Generar Imagen", key="btn_ejecutar_creacion_imagen", use_container_width=True):
+          if prompt_generar_imagen.strip():
+            ejecutar_generacion_imagen = True
+          else:
+            st.warning("Escribe una descripción antes de generar la imagen.")
 
   # Capturar entrada por chat de texto nativo
   chat_text_prompt = st.chat_input("Escribe tu mensaje a LyzAI...")
 
-  # Procesar envío o generación de imagen
-  if prompt_generar_imagen:
-    # Acción exclusiva de generación de imagen
+  # ==========================================
+  # PROCESAR GENERACIÓN DE IMAGEN (SOLO AL PRESIONAR EL BOTÓN)
+  # ==========================================
+  if ejecutar_generacion_imagen and prompt_generar_imagen.strip():
     img_prompt_display = f"🎨 *[Generar imagen solicitada]:* {prompt_generar_imagen}"
     st.session_state.messages.append({"role": "user", "content": img_prompt_display})
     with st.chat_message("user"):
@@ -666,19 +676,24 @@ else:
 
     with st.chat_message("assistant"):
       with st.spinner("✨ Creando tu imagen con IA (esto puede tomar unos segundos)..."):
-        img_bytes = generar_imagen_con_ia(prompt_generar_imagen)
-        if img_bytes:
-          st.image(img_bytes, caption=f"🖼️ {prompt_generar_imagen}", use_container_width=True)
-          st.session_state.messages.append({
-              "role": "assistant",
-              "content": f"Aquí tienes la imagen generada basada en tu descripción: *{prompt_generar_imagen}*",
-              "image_bytes": img_bytes
-          })
-          guardar_conversacion_actual(st.session_state.current_conversation_title)
-        else:
-          err_img = "⚠️ Lo siento, no se pudo generar la imagen en este momento. Inténtalo de nuevo."
-          st.warning(err_img)
-          st.session_state.messages.append({"role": "assistant", "content": err_img})
+        try:
+          img_bytes = generar_imagen_con_ia(prompt_generar_imagen)
+          if img_bytes:
+            st.image(img_bytes, caption=f"🖼️ {prompt_generar_imagen}", use_container_width=True)
+            st.session_state.messages.append({
+                "role": "assistant",
+                "content": f"Aquí tienes la imagen generada basada en tu descripción: *{prompt_generar_imagen}*",
+                "image_bytes": img_bytes
+            })
+            guardar_conversacion_actual(st.session_state.current_conversation_title)
+          else:
+            err_img = "⚠️ No se pudo generar la imagen. Es posible que hayas alcanzado tu cuota límite por hoy."
+            st.warning(err_img)
+            st.session_state.messages.append({"role": "assistant", "content": err_img})
+        except Exception as ex_img:
+          err_msg_img = str(ex_img)
+          st.warning(err_msg_img)
+          st.session_state.messages.append({"role": "assistant", "content": err_msg_img})
     st.rerun()
 
   # Procesamiento normal de chat, audio, archivos o enlaces
