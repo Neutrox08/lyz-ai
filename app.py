@@ -1,6 +1,5 @@
 import os
 import pathlib
-import re
 import time
 from google import genai
 from google.genai import types
@@ -161,8 +160,6 @@ if not st.session_state.user and st.session_state.app_view_mode == "auth":
       with st.form("login_form"):
         email_l = st.text_input("Correo electrónico", key="email_l")
         password_l = st.text_input("Contraseña", type="password", key="pass_l")
-        
-        # NUEVO: Botón o casilla para mantener sesión iniciada
         mantener_sesion = st.checkbox("Mantener sesión iniciada", value=True, key="mantener_sesion_chk")
         
         submit_l = st.form_submit_button("Entrar", use_container_width=True)
@@ -173,7 +170,6 @@ if not st.session_state.user and st.session_state.app_view_mode == "auth":
             if res.session:
               supabase.auth.set_session(res.session.access_token, res.session.refresh_token)
             
-            # Si el usuario eligió mantener la sesión, podemos guardar un indicador opcional o dejar que Supabase gestione el token localmente
             if mantener_sesion:
               st.toast("🔒 Sesión guardada de forma persistente.")
 
@@ -233,8 +229,7 @@ if "chat" not in st.session_state:
   client = get_genai_client()
   system_instruction = """
     Eres "LyzAI", un asistente de escritura creativa de clase mundial.
-    REGLA DE ORO 1: Cuando el capítulo o la obra esté lista, incluye al final de tu respuesta la etiqueta exacta con este formato: [GUARDAR_OBRA: Título | Género] (el género debe ser exactamente uno de los permitidos).
-    REGLA DE ORO 2: En cada interacción, incluye un tema descriptivo corto usando la etiqueta: [TEMA_CONVERSACION: Nombre Breve del Tema]
+    Ayuda al usuario a desarrollar sus historias, capítulos y novelas de manera creativa y fluida.
     """
   st.session_state.chat = client.chats.create(
       model="gemini-3.6-flash",
@@ -249,6 +244,9 @@ if "messages" not in st.session_state:
 
 if "current_conversation_title" not in st.session_state:
   st.session_state.current_conversation_title = "Nueva Conversación"
+
+if "current_genre" not in st.session_state:
+  st.session_state.current_genre = "Fantasía"
 
 def cargar_biblioteca_nube():
   library = {genre: {} for genre in all_genres}
@@ -321,7 +319,8 @@ with st.sidebar:
         "role": "assistant",
         "content": "¡Nueva conversación iniciada!",
     }]
-    st.session_state.current_conversation_title = "Nueva Conversación"
+    st.session_state.current_conversation_title = "Nueva Conversación
+    st.session_state.current_genre = "Fantasía"
     cambiar_estado_vista("app", "chat")
 
   st.markdown("---")
@@ -454,6 +453,7 @@ else:
       if st.button(f"📖 {genre_name}", use_container_width=True, key=f"fav_btn_{i}_{genre_name}"):
         selected_prompt = f"Quiero escribir una obra del género {genre_name}. Guíame paso a paso."
         st.session_state.current_conversation_title = f"Obra de {genre_name}"
+        st.session_state.current_genre = genre_name
 
   with cols[4]:
     if st.button("⚙️ Modificar", use_container_width=True, key="btn_modificar_favs"):
@@ -461,43 +461,37 @@ else:
 
   st.write("---")
 
-  # Renderizar mensajes del chat con soporte robusto para botones de guardado interactivos
-  for idx, message in enumerate(st.session_state.messages):
-    with st.chat_message(message["role"]):
-      content_to_show = message["content"]
-      guardar_info = None
-
-      if message["role"] == "assistant" and "[GUARDAR_OBRA:" in content_to_show:
+  # ==========================================
+  # PANEL AUTOMÁTICO DE GUARDADO DE OBRA
+  # ==========================================
+  with st.container(border=True):
+    col_g1, col_g2, col_g3 = st.columns([2, 2, 1])
+    with col_g1:
+      input_titulo_obra = st.text_input("Título de la obra:", value=st.session_state.current_conversation_title, key="input_titulo_obra_auto")
+    with col_g2:
+      input_genero_obra = st.selectbox("Género de la obra:", options=all_genres, index=all_genres.index(st.session_state.current_genre) if st.session_state.current_genre in all_genres else 0, key="select_genero_obra_auto")
+    with col_g3:
+      st.write("")
+      st.write("")
+      if st.button("💾 Guardar Obra", type="primary", use_container_width=True, key="btn_guardar_obra_automatico"):
         try:
-          match = re.search(r'\[GUARDAR_OBRA:\s*(.*?)\s*\Vert{}\s*(.*?)\]', content_to_show)
-          if match:
-            t_det = match.group(1).strip()
-            g_det = match.group(2).strip()
-            if g_det.lower() in ["fanfiction", "fan-fiction"]:
-              g_det = "Fanfic"
-            if g_det in all_genres:
-              guardar_info = (t_det, g_det)
-            content_to_show = re.sub(r'\[GUARDAR_OBRA:.*?\]', '', content_to_show).strip()
-        except Exception:
-          pass
+          contenido_total = "\n".join([f"{m['role'].upper()}: {m['content']}" for m in st.session_state.messages])
+          supabase.table("obras").upsert({
+              "user_id": st.session_state.user.id,
+              "titulo": input_titulo_obra,
+              "genero": input_genero_obra,
+              "contenido": contenido_total,
+          }, on_conflict="user_id,titulo").execute()
+          st.success(f"✨ ¡Obra '{input_titulo_obra}' guardada en el estante de {input_genero_obra}!")
+        except Exception as ex:
+          st.warning(f"No se pudo guardar la obra: {ex}")
 
-      st.markdown(content_to_show)
+  st.write("---")
 
-      if guardar_info:
-        t_det, g_det = guardar_info
-        btn_key = f"btn_guardar_obra_{idx}"
-        if st.button(f"💾 Guardar Obra: '{t_det}' ({g_det})", key=btn_key, type="primary"):
-          try:
-            contenido_total = "\n".join([f"{m['role'].upper()}: {m['content']}" for m in st.session_state.messages])
-            supabase.table("obras").upsert({
-                "user_id": st.session_state.user.id,
-                "titulo": t_det,
-                "genero": g_det,
-                "contenido": contenido_total,
-            }, on_conflict="user_id,titulo").execute()
-            st.success(f"✨ ¡Obra '{t_det}' guardada exitosamente en el estante de {g_det}!")
-          except Exception as ex:
-            st.warning(f"No se pudo guardar la obra: {ex}")
+  # Renderizar mensajes del chat normalmente
+  for message in st.session_state.messages:
+    with st.chat_message(message["role"]):
+      st.markdown(message["content"])
 
   if selected_prompt:
     st.session_state.messages.append({"role": "user", "content": selected_prompt})
@@ -525,14 +519,6 @@ else:
         try:
           response = enviar_mensaje_seguro(st.session_state.chat, prompt)
           text = response.text
-
-          if "[TEMA_CONVERSACION:" in text:
-            try:
-              t_tag = text.split("[TEMA_CONVERSACION:")[1].split("]")[0].strip()
-              st.session_state.current_conversation_title = t_tag
-              text = text.replace(f"[TEMA_CONVERSACION: {t_tag}]", "")
-            except Exception:
-              pass
 
           st.markdown(text)
           st.session_state.messages.append({"role": "assistant", "content": text})
