@@ -268,7 +268,12 @@ with st.sidebar:
     st.image(logo_path, width=70)
 
   st.title("LyzAI Menu")
-  st.write(f"👤 `{st.session_state.user.email}`")
+  
+  # Validación segura para evitar el AttributeError si el usuario recarga sin sesión activa
+  if st.session_state.user and hasattr(st.session_state.user, "email"):
+    st.write(f"👤 `{st.session_state.user.email}`")
+  else:
+    st.write("👤 `Sesión expirada`")
 
   if st.button("Cerrar Sesión", use_container_width=True, key="btn_cerrar_sesion_sidebar"):
     supabase.auth.sign_out()
